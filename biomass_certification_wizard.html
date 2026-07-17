@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biomass Certification Wizard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        /* Custom scrollbar for manual section */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Smooth transitions */
+        .fade-enter { opacity: 0; transform: translateY(10px); }
+        .fade-enter-active { opacity: 1; transform: translateY(0); transition: opacity 300ms, transform 300ms; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-8">
+
+    <div id="app-container" class="bg-white w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden relative min-h-[500px] flex flex-col">
+        <!-- Header -->
+        <header class="bg-slate-800 text-white p-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    BioCertify
+                </h1>
+                <p class="text-slate-300 text-sm mt-1">Sustainability Certification Finder</p>
+            </div>
+            <button id="btn-restart" class="hidden text-sm bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg transition-colors">
+                Restart
+            </button>
+        </header>
+
+        <!-- Progress Bar -->
+        <div id="progress-container" class="hidden h-1.5 bg-slate-100 w-full">
+            <div id="progress-bar" class="h-full bg-green-500 transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="flex-grow p-6 sm:p-10 flex flex-col justify-center">
+            <!-- Content gets injected here by JavaScript -->
+        </main>
+    </div>
+
+<script>
+    /** * DATA EXTRACTED FROM UPLOADED FILES & PROMPT LINKS
+     */
+    const certDatabase = {
+        RSPO: {
+            id: 'RSPO',
+            name: 'RSPO Supply Chain Certification',
+            badgeColor: 'bg-orange-100 text-orange-800 border-orange-200',
+            description: 'Essential for organizations in the palm oil value chain to demonstrate that their products contain sustainably sourced palm oil.',
+            link: 'https://rspo.org/certification/', // Generic fallback
+            manual: [
+                { title: 'Registration & Licensing', details: 'Register in the RSPO IT Platform, define your facility scope, and determine your supply chain model.' },
+                { title: 'Internal Control System (ICS)', details: 'Appoint a management representative and document procedures for traceability.' },
+                { title: 'Supply Chain Tracking', details: 'Maintain accurate accounting and ensure no multiple accounting of certified volumes.' },
+                { title: 'Supplier Verification', details: 'Ensure all suppliers hold a valid RSPO certificate and provide correct Sustainability Declarations.' },
+                { title: 'Certification Audit', details: 'Undergo an initial on-site certification audit followed by annual surveillance audits.' }
+            ]
+        },
+        FSC_COC: {
+            id: 'FSC CoC',
+            name: 'FSC Chain of Custody',
+            badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            description: 'The global standard for processing, trading, or manufacturing wood and paper products. Verifies materials originate from well-managed forests or reclaimed sources.',
+            link: 'https://docs.google.com/presentation/d/1z4hfYDgf4xH5-XVjXAvd7Q4JfIbayoO1iRDCDYakAS4/edit?slide=id.g3f3927203f2_0_556',
+            manual: [
+                { title: 'Appoint Coordinator & Train Staff', details: 'Assign responsibility to a coordinator and train all relevant employees on FSC procedures and Core Labour Requirements.' },
+                { title: 'Develop CoC Procedures', details: 'Write a manual detailing your chosen control system and establish FSC product groups.' },
+                { title: 'Supplier & Material Control', details: 'Verify suppliers via info.fsc.org. Segregate certified inputs from non-eligible materials.' },
+                { title: 'Volume Accounting & Trademarks', details: 'Track conversion factors, compile annual summaries, and get approval for trademark use.' },
+                { title: 'Certification Assessment', details: 'Complete a pre-audit (optional) and a main audit by a certification body.' }
+            ]
+        },
+        FSC_FM: {
+            id: 'FSC FM',
+            name: 'FSC Forest Management',
+            badgeColor: 'bg-green-100 text-green-800 border-green-200',
+            description: 'Designed for forest owners to certify that their forest operations are environmentally appropriate, socially beneficial, and economically viable.',
+            link: 'https://docs.google.com/presentation/d/1z4hfYDgf4xH5-XVjXAvd7Q4JfIbayoO1iRDCDYakAS4/edit?slide=id.g3f3927203f2_0_556',
+            manual: [
+                { title: 'Legal & Rights Compliance', details: 'Ensure clear land tenure and respect for Indigenous and community rights using FPIC.' },
+                { title: 'Management Plan Development', details: 'Develop a comprehensive management plan including long-term economic viability and verifiable targets.' },
+                { title: 'Environmental & Social Impact', details: 'Assess impacts, protect rare species, and maintain High Conservation Values (HCVs).' },
+                { title: 'Operational Implementation', details: 'Use native species for regeneration and prohibit the conversion of natural forests.' },
+                { title: 'Monitoring & Assessment', details: 'Annually monitor forest condition, yields, and environmental impacts.' }
+            ]
+        },
+        PEFC_COC: {
+            id: 'PEFC CoC',
+            name: 'PEFC Chain of Custody',
+            badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
+            description: 'Provides independent verified assurance that the certified forest-based material contained in a product originates from sustainably managed forests.',
+            link: 'https://docs.google.com/presentation/d/1FS1pbtgXyPIvkUXiKPHi_QFvEpTVnHgmltbqE_PD5vY/edit?slide=id.g3f3927203f2_0_556',
+            manual: [
+                { title: 'Management System', details: 'Operate a management system, establish written procedures, and define responsibilities and authorities.' },
+                { title: 'Due Diligence System (DDS)', details: 'Gather information, assess risks, and manage significant risk supplies to avoid material from controversial sources.' },
+                { title: 'Chain of Custody Method', details: 'Implement Physical Separation, Percentage, or Credit methods based on your operational setup.' },
+                { title: 'Identification & Declarations', details: 'Identify input material categories accurately and issue correct PEFC claims on sales outputs.' },
+                { title: 'Internal & External Audits', details: 'Conduct annual internal audits and pass a third-party conformity assessment.' }
+            ]
+        },
+        PEFC_FM: {
+            id: 'PEFC FM',
+            name: 'PEFC Forest Management',
+            badgeColor: 'bg-lime-100 text-lime-800 border-lime-200',
+            description: 'Ensures forest management practices meet strict environmental, social, and economic requirements tailored to local ecosystems.',
+            link: 'https://docs.google.com/presentation/d/1FS1pbtgXyPIvkUXiKPHi_QFvEpTVnHgmltbqE_PD5vY/edit?slide=id.g3f3927203f2_0_556',
+            manual: [
+                { title: 'National Standard Compliance', details: 'Adhere to the PEFC-endorsed national forest management standard specific to your country.' },
+                { title: 'Ecological Health', details: 'Maintain or enhance biodiversity, protect ecologically important forest areas, and secure regeneration.' },
+                { title: 'Health & Labor Rights', details: 'Ensure safe working conditions and respect the core ILO labor conventions.' },
+                { title: 'Harvesting Practices', details: 'Implement logging systems that minimize adverse impacts on soil, water, and biodiversity.' },
+                { title: 'Continual Improvement', details: 'Monitor operations regularly and adapt forest management plans based on audit findings.' }
+            ]
+        },
+        ISCC: {
+            id: 'ISCC PLUS',
+            name: 'ISCC PLUS (or ISCC EU)',
+            badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+            description: 'A globally recognized certification for bio-based products, circular plastics, agricultural residues, and bioenergy (EU RED compliance if ISCC EU).',
+            link: 'https://docs.google.com/presentation/d/1pNQ3XXNtjL1zFMgD4SnXgBT5JDADMahtYfLRtxnnn4E/edit?slide=id.g3f3927203f2_0_556',
+            manual: [
+                { title: 'Establish Management System', details: 'Define internal material flows, appoint key staff, and conduct an internal risk assessment.' },
+                { title: 'Point of Origin Declarations', details: 'Collect signed self-declarations from points of origin to ensure materials meet ISCC waste/residue definitions.' },
+                { title: 'Traceability & Mass Balance', details: 'Implement strict site-specific quantity bookkeeping to track sustainable characteristics and prevent multiple accounting.' },
+                { title: 'GHG Calculation', details: 'Calculate lifecycle greenhouse gas emissions using conversion factors or standard default values.' },
+                { title: 'External Certification Audit', details: 'Pass an audit by a recognized CB to verify mass balance, sustainability declarations, and traceability records.' }
+            ]
+        }
+    };
+
+    const questions = [
+        {
+            id: 'material',
+            question: 'What is the primary material your organization handles or processes?',
+            options: [
+                { label: 'Wood, Timber, or Paper Products', value: 'wood' },
+                { label: 'Palm Oil or Palm Derivatives (CPO, PKO)', value: 'palm' },
+                { label: 'Circular Plastics, Bio-based Chemicals, or Ag/Food Residues', value: 'circular' }
+            ]
+        },
+        {
+            id: 'wood_preference',
+            question: 'Which forest certification scheme is predominant in your region or requested by buyers?',
+            condition: (answers) => answers.material === 'wood',
+            options: [
+                { label: 'FSC (Forest Stewardship Council)', value: 'FSC' },
+                { label: 'PEFC (Programme for the Endorsement of Forest Certification)', value: 'PEFC' },
+                { label: 'Not sure / Need recommendation', value: 'FSC' } // Default fallback
+            ]
+        },
+        {
+            id: 'region',
+            question: 'In which region are your operations and raw material sourcing primarily located?',
+            options: [
+                { label: 'Europe (EU / UK)', value: 'europe' },
+                { label: 'Asia', value: 'asia' },
+                { label: 'North America', value: 'na' },
+                { label: 'South America', value: 'sa' },
+                { label: 'Africa', value: 'africa' }
+            ]
+        },
+        {
+            id: 'eu_export',
+            question: 'Do you plan to export to the EU, or are you targeting EU-regulated bioenergy markets (RED III)?',
+            options: [
+                { label: 'Yes, targeting EU markets / RED III compliance', value: 'yes' },
+                { label: 'No, primarily domestic or non-EU markets', value: 'no' }
+            ]
+        },
+        {
+            id: 'role',
+            question: 'What is your primary role in the supply chain?',
+            options: [
+                { label: 'Forest Owner / Land Manager / Point of Origin', value: 'owner' },
+                { label: 'Collector / First Gathering Point', value: 'collector' },
+                { label: 'Processor / Manufacturer / Refinery', value: 'processor' },
+                { label: 'Trader / Distributor (with or without storage)', value: 'trader' }
+            ]
+        },
+        {
+            id: 'mixing',
+            question: 'Will you physically mix certified and non-certified materials in your facility (e.g., in tanks or silos)?',
+            condition: (answers) => answers.role !== 'owner',
+            options: [
+                { label: 'Yes, we will mix them and track via bookkeeping', value: 'yes' },
+                { label: 'No, we will keep them strictly physically separated', value: 'no' }
+            ]
+        }
+    ];
+
+    // Application State
+    let currentStepIndex = -1; // -1: Intro
+    let answers = {};
+    
+    // Results
+    let recommendedCertId = null;
+    let recommendedScope = null;
+    let recommendedCoC = null;
+    let specialNotes = [];
+
+    const mainContent = document.getElementById('main-content');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const btnRestart = document.getElementById('btn-restart');
+
+    function renderContent(html) {
+        mainContent.innerHTML = `<div class="fade-enter">${html}</div>`;
+        void mainContent.offsetWidth; // Trigger reflow
+        mainContent.firstElementChild.classList.add('fade-enter-active');
+    }
+
+    function updateProgress() {
+        if (currentStepIndex < 0 || currentStepIndex >= questions.length) {
+            progressContainer.classList.add('hidden');
+        } else {
+            progressContainer.classList.remove('hidden');
+            const percent = ((currentStepIndex) / questions.length) * 100;
+            progressBar.style.width = `${percent}%`;
+        }
+    }
+
+    function showIntro() {
+        btnRestart.classList.add('hidden');
+        renderContent(`
+            <div class="text-center">
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                </div>
+                <h2 class="text-3xl font-bold text-slate-800 mb-4">Find Your Certification</h2>
+                <p class="text-slate-600 mb-8 max-w-md mx-auto">Answer a few questions about your materials, region, and supply chain role to get a tailored standard recommendation, scope, and implementation manual.</p>
+                <button onclick="nextStep()" class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    Start Assessment
+                </button>
+            </div>
+        `);
+    }
+
+    function getNextQuestionIndex(startIndex) {
+        let index = startIndex + 1;
+        while (index < questions.length) {
+            if (questions[index].condition) {
+                if (questions[index].condition(answers)) return index;
+            } else {
+                return index;
+            }
+            index++;
+        }
+        return index;
+    }
+
+    function showQuestion(index) {
+        btnRestart.classList.remove('hidden');
+        const q = questions[index];
+        let optionsHtml = q.options.map(opt => `
+            <button onclick="selectOption('${q.id}', '${opt.value}')" class="w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 transition-all flex items-center justify-between group mb-3">
+                <span class="font-medium text-slate-700 group-hover:text-green-700">${opt.label}</span>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        `).join('');
+
+        renderContent(`
+            <div class="max-w-xl mx-auto w-full">
+                <p class="text-sm font-semibold text-green-600 mb-2">Question</p>
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">${q.question}</h2>
+                <div class="space-y-3">
+                    ${optionsHtml}
+                </div>
+            </div>
+        `);
+    }
+
+    function evaluateAnswers() {
+        specialNotes = [];
+        
+        // 1. Determine Standard (RSPO, FSC, PEFC, ISCC)
+        if (answers.material === 'palm') {
+            recommendedCertId = 'RSPO';
+        } else if (answers.material === 'circular') {
+            recommendedCertId = 'ISCC';
+            if (answers.eu_export === 'yes') {
+                specialNotes.push("Because you target EU energy markets, you should apply specifically for **ISCC EU** to comply with RED III requirements.");
+            } else {
+                specialNotes.push("For non-EU or non-energy markets, **ISCC PLUS** is the appropriate voluntary standard.");
+            }
+        } else if (answers.material === 'wood') {
+            let prefix = answers.wood_preference === 'PEFC' ? 'PEFC' : 'FSC';
+            recommendedCertId = answers.role === 'owner' ? `${prefix}_FM` : `${prefix}_COC`;
+            
+            if (answers.eu_export === 'yes' && prefix === 'PEFC') {
+                specialNotes.push("If your forest biomass is meant for EU energy, consider the **PEFC RED III** module for RED III compliance.");
+            }
+        }
+
+        // 2. Determine Scope
+        if (answers.role === 'owner') {
+            recommendedScope = recommendedCertId.includes('ISCC') ? 'Farm/Plantation or Point of Origin' : 'Forest Management Unit (FMU)';
+        } else if (answers.role === 'collector') {
+            recommendedScope = recommendedCertId.includes('ISCC') ? 'First Gathering Point / Collecting Point' : 'Material Sourcing / Procurement';
+        } else if (answers.role === 'processor') {
+            recommendedScope = recommendedCertId.includes('RSPO') ? 'Mill / Refinery / Manufacturer' : 'Processing Unit';
+        } else if (answers.role === 'trader') {
+            recommendedScope = 'Trader (with or without storage)';
+        }
+
+        // 3. Determine CoC Method
+        if (answers.role === 'owner') {
+            recommendedCoC = 'N/A (Origin Level)';
+        } else {
+            if (answers.mixing === 'yes') {
+                if (recommendedCertId.includes('FSC') || recommendedCertId.includes('PEFC')) {
+                    recommendedCoC = 'Percentage System or Credit System';
+                } else if (recommendedCertId === 'RSPO') {
+                    recommendedCoC = 'Mass Balance (MB)';
+                } else {
+                    recommendedCoC = 'Mass Balance';
+                }
+            } else {
+                if (recommendedCertId.includes('FSC') || recommendedCertId.includes('PEFC')) {
+                    recommendedCoC = 'Transfer System / Physical Separation';
+                } else if (recommendedCertId === 'RSPO') {
+                    recommendedCoC = 'Identity Preserved (IP) or Segregated (SG)';
+                } else {
+                    recommendedCoC = 'Physical Segregation (Hard IP / Soft IP)';
+                }
+            }
+        }
+    }
+
+    function showResult() {
+        evaluateAnswers();
+        const cert = certDatabase[recommendedCertId];
+        progressBar.style.width = '100%';
+        
+        let notesHtml = specialNotes.map(n => `<p class="text-sm text-amber-800 mt-2 flex gap-2"><svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ${n}</p>`).join('');
+
+        renderContent(`
+            <div class="text-center max-w-2xl mx-auto">
+                <div class="inline-block p-2 bg-green-100 rounded-full mb-4">
+                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <h2 class="text-slate-500 font-medium mb-2">Recommended Certification</h2>
+                <h3 class="text-3xl font-bold text-slate-800 mb-4">${cert.name}</h3>
+                
+                <div class="flex flex-wrap justify-center gap-3 mb-6">
+                    <span class="px-3 py-1 text-sm font-semibold border rounded-full ${cert.badgeColor}">
+                        Standard: ${cert.id}
+                    </span>
+                    <span class="px-3 py-1 text-sm font-semibold border rounded-full bg-slate-100 text-slate-700 border-slate-200">
+                        Scope: ${recommendedScope}
+                    </span>
+                    <span class="px-3 py-1 text-sm font-semibold border rounded-full bg-slate-100 text-slate-700 border-slate-200">
+                        CoC: ${recommendedCoC}
+                    </span>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-4 text-left">
+                    <p class="text-slate-700 leading-relaxed">${cert.description}</p>
+                </div>
+                
+                ${notesHtml ? `<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8 text-left">${notesHtml}</div>` : '<div class="mb-8"></div>'}
+
+                <button onclick="showManual()" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 px-8 rounded-xl transition-all shadow-md w-full sm:w-auto">
+                    View Implementation Manual
+                </button>
+            </div>
+        `);
+    }
+
+    function showManual() {
+        const cert = certDatabase[recommendedCertId];
+        
+        let stepsHtml = cert.manual.map((step, idx) => `
+            <div class="flex gap-4 mb-6">
+                <div class="flex-shrink-0 w-10 h-10 bg-green-100 text-green-700 font-bold rounded-full flex items-center justify-center border border-green-200">
+                    ${idx + 1}
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold text-slate-800 mb-1">${step.title}</h4>
+                    <p class="text-slate-600 text-sm leading-relaxed">${step.details}</p>
+                </div>
+            </div>
+        `).join('');
+
+        renderContent(`
+            <div class="max-w-2xl mx-auto h-full flex flex-col max-h-[65vh]">
+                <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-200 flex-shrink-0">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Implementation Manual</h2>
+                        <p class="text-green-600 font-medium text-sm">${cert.name}</p>
+                    </div>
+                    <button onclick="showResult()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="overflow-y-auto pr-2 pb-4">
+                    <div class="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-700">
+                        <p><strong>Your Target Scope:</strong> ${recommendedScope}</p>
+                        <p class="mt-1"><strong>Your CoC Method:</strong> ${recommendedCoC}</p>
+                    </div>
+
+                    ${stepsHtml}
+                    
+                    <div class="mt-6 text-center">
+                        <a href="${cert.link}" target="_blank" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold transition-colors">
+                            Click here for more detailed slides & procedures
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+
+    window.selectOption = function(questionId, value) {
+        answers[questionId] = value;
+        nextStep();
+    };
+
+    window.nextStep = function() {
+        currentStepIndex = getNextQuestionIndex(currentStepIndex);
+        updateProgress();
+        
+        if (currentStepIndex === -1) {
+            showIntro();
+        } else if (currentStepIndex < questions.length) {
+            showQuestion(currentStepIndex);
+        } else {
+            showResult();
+        }
+    };
+
+    btnRestart.addEventListener('click', () => {
+        currentStepIndex = -1;
+        answers = {};
+        recommendedCertId = null;
+        updateProgress();
+        showIntro();
+    });
+
+    // Initialize the app
+    showIntro();
+</script>
+</body>
+</html>
